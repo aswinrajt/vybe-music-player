@@ -8,16 +8,23 @@ import type { Activity, Mood, Track } from "./types";
 
 // All tracks: Kevin MacLeod (incompetech.com), licensed under Creative Commons: By Attribution 4.0.
 // Every URL below was verified to respond with audio before inclusion.
-const BASE = "https://incompetech.com/music/royalty-free/mp3-royaltyfree/";
+// Audio files are redistributed (as permitted by CC BY 4.0) from Lovable's CDN for fast, reliable playback.
+const AUDIO = import.meta.glob<{ url: string }>("@/assets/audio/*.mp3.asset.json", { eager: true, import: "default" });
+const audioFor = (id: string) => {
+  const hit = Object.entries(AUDIO).find(([k]) => k.endsWith(`/${id}.mp3.asset.json`));
+  if (!hit) throw new Error(`Missing audio for ${id}`);
+  return hit[1].url;
+};
 const ART: Record<Mood, string> = { Happy: happy, Calm: calm, Melancholy: melancholy, Energetic: energetic, Focused: focused, Sleepy: sleepy };
 
 function t(file: string, genre: string, moods: Mood[], activities: Activity[]): Track {
+  const id = file.toLowerCase().replace(/[^a-z0-9]+/g, "-");
   return {
-    id: file.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+    id,
     title: file.replace(/ - faster$/, ""),
     artist: "Kevin MacLeod",
     genre,
-    audioUrl: BASE + encodeURIComponent(file) + ".mp3",
+    audioUrl: audioFor(id),
     artworkUrl: ART[moods[0]],
     moods,
     activities,
