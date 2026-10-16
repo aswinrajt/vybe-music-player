@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { musicProvider } from "@/lib/music/provider";
-import { surprise as pickSurprise } from "@/lib/music/recommend";
+import { recommend, surprise as pickSurprise } from "@/lib/music/recommend";
 import type { Activity, Mood, Track } from "@/lib/music/types";
 import { load, save } from "@/lib/storage";
 
@@ -204,7 +204,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const t = pickSurprise(tracks, { mood, activity, recent, unplayable });
     if (!t) { toast.error("No playable tracks available right now."); return; }
     toast(`Surprise: ${t.title}`, { description: [mood, activity].filter(Boolean).join(" · ") || "Anything goes" });
-    playTrack(t);
+    const rest = recommend(tracks, mood, activity).filter((x) => x.id !== t.id && !unplayable.includes(x.id));
+    playTrack(t, [t, ...rest]);
   }, [tracks, mood, activity, recent, unplayable, playTrack]);
 
   const value: PlayerCtx = {
