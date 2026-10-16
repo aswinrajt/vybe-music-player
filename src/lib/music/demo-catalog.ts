@@ -25,7 +25,7 @@ function t(file: string, genre: string, moods: Mood[], activities: Activity[]): 
     artist: "Kevin MacLeod",
     genre,
     audioUrl: audioFor(id),
-    artworkUrl: ART[moods[0]],
+    artworkUrl: ART[moods[0]!],
     moods,
     activities,
     license: {

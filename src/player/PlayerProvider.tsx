@@ -106,7 +106,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const a = new Audio();
     a.preload = "metadata";
     audioRef.current = a;
-    if (import.meta.env.DEV) (window as unknown as { __vybeAudio: HTMLAudioElement }).__vybeAudio = a;
+    (window as unknown as { __vybeAudio: HTMLAudioElement }).__vybeAudio = a;
     const on = (e: string, f: () => void) => a.addEventListener(e, f);
     on("loadstart", () => setStatus("loading"));
     on("waiting", () => setStatus("loading"));
