@@ -44,9 +44,16 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
+import { handleTracksApi } from "./lib/server/tracks-api";
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const url = new URL(request.url);
+      if (url.pathname === "/api/tracks" || url.pathname.startsWith("/api/tracks/")) {
+        return await handleTracksApi(request, env as Record<string, unknown>);
+      }
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);

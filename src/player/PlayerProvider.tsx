@@ -1,4 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { toast } from "sonner";
 import { musicProvider } from "@/lib/music/provider";
 import { recommend, surprise as pickSurprise } from "@/lib/music/recommend";
@@ -38,6 +47,7 @@ interface PlayerCtx {
   surpriseMe: () => void;
   removeFromQueue: (id: string) => void;
   clearRecent: () => void;
+  refreshTracks: () => Promise<void>;
 }
 
 const Ctx = createContext<PlayerCtx | null>(null);
@@ -79,27 +89,48 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setVol(load("volume", 0.8));
     setHydrated(true);
   }, []);
-  useEffect(() => { if (hydrated) save("favourites", favourites); }, [favourites, hydrated]);
-  useEffect(() => { if (hydrated) save("recent", recent); }, [recent, hydrated]);
-  useEffect(() => { if (hydrated) save("mood", mood); }, [mood, hydrated]);
-  useEffect(() => { if (hydrated) save("activity", activity); }, [activity, hydrated]);
-  useEffect(() => { if (hydrated) save("volume", volume); }, [volume, hydrated]);
+  useEffect(() => {
+    if (hydrated) save("favourites", favourites);
+  }, [favourites, hydrated]);
+  useEffect(() => {
+    if (hydrated) save("recent", recent);
+  }, [recent, hydrated]);
+  useEffect(() => {
+    if (hydrated) save("mood", mood);
+  }, [mood, hydrated]);
+  useEffect(() => {
+    if (hydrated) save("activity", activity);
+  }, [activity, hydrated]);
+  useEffect(() => {
+    if (hydrated) save("volume", volume);
+  }, [volume, hydrated]);
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
     if (hydrated) save("theme", theme);
   }, [theme, hydrated]);
 
-  useEffect(() => {
-    musicProvider
-      .listTracks()
-      .then(setTracks)
-      .catch(() => setCatalogError("Couldn't load the music catalogue."))
-      .finally(() => setCatalogLoading(false));
+  const refreshTracks = useCallback(async () => {
+    try {
+      setCatalogLoading(true);
+      const list = await musicProvider.listTracks();
+      setTracks(list);
+    } catch {
+      setCatalogError("Couldn't load the music catalogue.");
+    } finally {
+      setCatalogLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    refreshTracks();
+  }, [refreshTracks]);
+
   const byId = useMemo(() => new Map(tracks.map((t) => [t.id, t])), [tracks]);
-  const queue = useMemo(() => queueIds.map((id) => byId.get(id)).filter(Boolean) as Track[], [queueIds, byId]);
-  const current = index >= 0 ? queue[index] ?? null : null;
+  const queue = useMemo(
+    () => queueIds.map((id) => byId.get(id)).filter(Boolean) as Track[],
+    [queueIds, byId],
+  );
+  const current = index >= 0 ? (queue[index] ?? null) : null;
 
   // Single shared audio element
   useEffect(() => {
@@ -114,7 +145,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     on("pause", () => setStatus((s) => (s === "error" ? s : "paused")));
     on("timeupdate", () => setCurrentTime(a.currentTime));
     on("durationchange", () => setDuration(isFinite(a.duration) ? a.duration : 0));
-    return () => { a.pause(); a.src = ""; };
+    return () => {
+      a.pause();
+      a.src = "";
+    };
   }, []);
 
   useEffect(() => {
@@ -124,12 +158,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     a.muted = muted;
   }, [volume, muted]);
 
-  const advance = useCallback((dir: 1 | -1) => {
-    setIndex((i) => {
-      const n = i + dir;
-      return n >= 0 && n < queueIds.length ? n : i;
-    });
-  }, [queueIds.length]);
+  const advance = useCallback(
+    (dir: 1 | -1) => {
+      setIndex((i) => {
+        const n = i + dir;
+        return n >= 0 && n < queueIds.length ? n : i;
+      });
+    },
+    [queueIds.length],
+  );
 
   // Ended / error handlers depend on queue
   useEffect(() => {
@@ -148,7 +185,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     };
     a.addEventListener("ended", onEnded);
     a.addEventListener("error", onError);
-    return () => { a.removeEventListener("ended", onEnded); a.removeEventListener("error", onError); };
+    return () => {
+      a.removeEventListener("ended", onEnded);
+      a.removeEventListener("error", onError);
+    };
   }, [index, queueIds.length, current]);
 
   // Load source when current track changes
@@ -165,26 +205,41 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     });
     setRecent((r) => [current.id, ...r.filter((x) => x !== current.id)].slice(0, 20));
     if ("mediaSession" in navigator) {
-      navigator.mediaSession.metadata = new MediaMetadata({ title: current.title, artist: current.artist, artwork: [{ src: current.artworkUrl }] });
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: current.title,
+        artist: current.artist,
+        artwork: [{ src: current.artworkUrl }],
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentId]);
 
-  const playTrack = useCallback((t: Track, q?: Track[]) => {
-    const list = q && q.some((x) => x.id === t.id) ? q : [t];
-    const ids = list.map((x) => x.id);
-    if (current?.id === t.id) {
-      const a = audioRef.current;
-      if (a) { a.currentTime = 0; a.play().catch(() => {}); }
-    }
-    setQueueIds(ids);
-    setIndex(ids.indexOf(t.id));
-  }, [current?.id]);
+  const playTrack = useCallback(
+    (t: Track, q?: Track[]) => {
+      const list = q && q.some((x) => x.id === t.id) ? q : [t];
+      const ids = list.map((x) => x.id);
+      if (current?.id === t.id) {
+        const a = audioRef.current;
+        if (a) {
+          a.currentTime = 0;
+          a.play().catch(() => {});
+        }
+      }
+      setQueueIds(ids);
+      setIndex(ids.indexOf(t.id));
+    },
+    [current?.id],
+  );
 
   const toggle = useCallback(() => {
     const a = audioRef.current;
     if (!a || !current) return;
-    if (status === "error") { setError(null); a.load(); a.play().catch(() => {}); return; }
+    if (status === "error") {
+      setError(null);
+      a.load();
+      a.play().catch(() => {});
+      return;
+    }
     if (a.paused) a.play().catch(() => setStatus("paused"));
     else a.pause();
   }, [current, status]);
@@ -192,31 +247,69 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const next = useCallback(() => advance(1), [advance]);
   const prev = useCallback(() => {
     const a = audioRef.current;
-    if (a && a.currentTime > 3) { a.currentTime = 0; return; }
+    if (a && a.currentTime > 3) {
+      a.currentTime = 0;
+      return;
+    }
     advance(-1);
   }, [advance]);
 
   const seek = useCallback((s: number) => {
     const a = audioRef.current;
-    if (a && isFinite(s)) { a.currentTime = s; setCurrentTime(s); }
+    if (a && isFinite(s)) {
+      a.currentTime = s;
+      setCurrentTime(s);
+    }
   }, []);
 
   const surpriseMe = useCallback(() => {
     const t = pickSurprise(tracks, { mood, activity, recent, unplayable });
-    if (!t) { toast.error("No playable tracks available right now."); return; }
-    toast(`Surprise: ${t.title}`, { description: [mood, activity].filter(Boolean).join(" · ") || "Anything goes" });
-    const rest = recommend(tracks, mood, activity).filter((x) => x.id !== t.id && !unplayable.includes(x.id));
+    if (!t) {
+      toast.error("No playable tracks available right now.");
+      return;
+    }
+    toast(`Surprise: ${t.title}`, {
+      description: [mood, activity].filter(Boolean).join(" · ") || "Anything goes",
+    });
+    const rest = recommend(tracks, mood, activity).filter(
+      (x) => x.id !== t.id && !unplayable.includes(x.id),
+    );
     playTrack(t, [t, ...rest]);
   }, [tracks, mood, activity, recent, unplayable, playTrack]);
 
   const value: PlayerCtx = {
-    tracks, catalogLoading, catalogError, current, queue, status, error, currentTime, duration, volume, muted,
-    favourites, recent, mood, activity, theme,
-    playTrack, toggle, next, prev, seek,
-    setVolume: (v) => { setVol(v); if (v > 0) setMuted(false); },
+    tracks,
+    catalogLoading,
+    catalogError,
+    current,
+    queue,
+    status,
+    error,
+    currentTime,
+    duration,
+    volume,
+    muted,
+    favourites,
+    recent,
+    mood,
+    activity,
+    theme,
+    playTrack,
+    toggle,
+    next,
+    prev,
+    seek,
+    setVolume: (v) => {
+      setVol(v);
+      if (v > 0) setMuted(false);
+    },
     toggleMute: () => setMuted((m) => !m),
-    toggleFavourite: (id) => setFavourites((f) => (f.includes(id) ? f.filter((x) => x !== id) : [id, ...f])),
-    setMood: setMoodS, setActivity: setActivityS, setTheme: setThemeS, surpriseMe,
+    toggleFavourite: (id) =>
+      setFavourites((f) => (f.includes(id) ? f.filter((x) => x !== id) : [id, ...f])),
+    setMood: setMoodS,
+    setActivity: setActivityS,
+    setTheme: setThemeS,
+    surpriseMe,
     removeFromQueue: (id) => {
       const i = queueIds.indexOf(id);
       if (i < 0 || i === index) return;
@@ -224,6 +317,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (i < index) setIndex(index - 1);
     },
     clearRecent: () => setRecent([]),
+    refreshTracks,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

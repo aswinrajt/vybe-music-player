@@ -21,21 +21,38 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
           <nav className="hidden gap-1 md:flex" aria-label="Main">
             {NAV.map((n) => (
-              <Link key={n.to} to={n.to} activeOptions={{ exact: true }} className="rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[status=active]:bg-accent data-[status=active]:text-accent-foreground">
+              <Link
+                key={n.to}
+                to={n.to}
+                activeOptions={{ exact: true }}
+                className="rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[status=active]:bg-accent data-[status=active]:text-accent-foreground"
+              >
                 {n.label}
               </Link>
             ))}
           </nav>
-          <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} aria-label="Switch theme" className="rounded-full border p-2 transition-colors hover:bg-accent">
+          <button
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            aria-label="Switch theme"
+            className="rounded-full border p-2 transition-colors hover:bg-accent"
+          >
             {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
           </button>
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-4 pb-48 pt-6 md:px-6 md:pb-32">{children}</main>
       <PlayerBar />
-      <nav aria-label="Main mobile" className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-3 border-t bg-surface backdrop-blur-xl md:hidden">
+      <nav
+        aria-label="Main mobile"
+        className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-3 border-t bg-surface backdrop-blur-xl md:hidden"
+      >
         {NAV.map((n) => (
-          <Link key={n.to} to={n.to} activeOptions={{ exact: true }} className="flex flex-col items-center justify-center gap-0.5 text-xs text-muted-foreground data-[status=active]:text-primary">
+          <Link
+            key={n.to}
+            to={n.to}
+            activeOptions={{ exact: true }}
+            className="flex flex-col items-center justify-center gap-0.5 text-xs text-muted-foreground data-[status=active]:text-primary"
+          >
             <n.icon className="size-5" />
             {n.label}
           </Link>

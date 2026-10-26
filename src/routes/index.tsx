@@ -72,10 +72,10 @@ function Home() {
         )}
       </section>
 
-      <p className="text-xs text-muted-foreground">
+      {/* <p className="text-xs text-muted-foreground">
         Demo music by Kevin MacLeod (incompetech.com), licensed under{" "}
         <a className="underline" href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>.
-      </p>
+      </p> */}
     </div>
   );
 }
